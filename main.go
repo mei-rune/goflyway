@@ -289,7 +289,7 @@ func parseFlywayVersion(versionStr string) (major, minor, patch int, err error) 
 	}
 	if len(parts) == 1 {
 		return major, 1, 0, nil
-	} 
+	}
 
 	minor, err = strconv.Atoi(parts[1])
 	if err != nil || minor < 1 || minor > 31 {
@@ -297,7 +297,7 @@ func parseFlywayVersion(versionStr string) (major, minor, patch int, err error) 
 	}
 	if len(parts) == 2 {
 		return major, minor, 0, nil
-	} 
+	}
 
 	patch, err = strconv.Atoi(parts[2])
 	if err != nil || patch < 1 || patch > 999999 {

@@ -238,7 +238,7 @@ func createTestJar(path string) {
 }
 
 // TestConvertFlywayToGoose 测试完整转换流程
-func TestConvertFlywayToGoose(t *testing.T) {
+func TestConvertFile(t *testing.T) {
 	// 创建临时输出目录
 	tempDir := t.TempDir()
 
