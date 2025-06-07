@@ -19,6 +19,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;`,
 			expected: `-- +goose Up
+
 -- +goose StatementBegin
 CREATE FUNCTION test() RETURNS void AS $$
 BEGIN
@@ -43,6 +44,7 @@ BEGIN
 END;
 $BODY$ LANGUAGE plpgsql;`,
 			expected: `-- +goose Up
+
 -- +goose StatementBegin
 CREATE OR REPLACE FUNCTION public.test_func(param1 int, param2 text)
 RETURNS TABLE (id int, name text) AS $BODY$
@@ -69,8 +71,9 @@ BEGIN
 END;  
 $$  ;`,
 			expected: `-- +goose Up
+
 -- +goose StatementBegin
-CREATE OR REPLACE PROCEDURE test()
+CREATE  OR   REPLACE   PROCEDURE  test()
 AS  $$  
 BEGIN
     PERFORM something();  
@@ -92,6 +95,7 @@ BeGiN
 EnD;
 $$ lAnGuAgE plpgsql;`,
 			expected: `-- +goose Up
+
 -- +goose StatementBegin
 CrEaTe Or RePlAcE FuNcTiOn test() 
 ReTuRnS void AS $$
@@ -119,8 +123,9 @@ BEGIN
 END;
 $BODY$ LANGUAGE plpgsql;`,
 			expected: `-- +goose Up
--- 头部注释
+
 -- +goose StatementBegin
+-- 头部注释
 CREATE /* 块注释 */ FUNCTION test() -- 行注释
 RETURNS void AS $BODY$
 /* 多行
@@ -148,6 +153,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;`,
 			expected: `-- +goose Up
+
 -- +goose StatementBegin
 CREATE FUNCTION test() RETURNS void AS $$
 BEGIN
@@ -177,12 +183,15 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;`,
 			expected: `-- +goose Up
+
 -- +goose StatementBegin
 CREATE FUNCTION func1() RETURNS void AS $$
 BEGIN
 END;
 $$ LANGUAGE plpgsql;
 -- +goose StatementEnd
+
+
 
 -- +goose StatementBegin
 CREATE OR REPLACE FUNCTION func2() RETURNS int AS $$
@@ -211,6 +220,7 @@ CREATE TABLE users (
     name TEXT NOT NULL
 );
 
+
 INSERT INTO users (name) VALUES ('test');
 
 -- +goose Down
@@ -236,6 +246,8 @@ CREATE TABLE users (
     id SERIAL PRIMARY KEY
 );
 
+
+
 -- +goose StatementBegin
 CREATE FUNCTION update_users() RETURNS void AS $$
 BEGIN
@@ -243,6 +255,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 -- +goose StatementEnd
+
 
 INSERT INTO users DEFAULT VALUES;
 
@@ -265,6 +278,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;`,
 			expected: `-- +goose Up
+
 -- +goose StatementBegin
 CREATE FUNCTION test() RETURNS void AS $$
 BEGIN
@@ -326,7 +340,7 @@ func TestConvertFlywayToGoose_EdgeCases(t *testing.T) {
 BEGIN
 END
 $$ LANGUAGE plpgsql`,
-			expected: "-- +goose Up\n-- +goose StatementBegin\nCREATE FUNCTION test() RETURNS void AS $$\nBEGIN\nEND\n$$ LANGUAGE plpgsql\n-- +goose StatementEnd\n\n-- +goose Down\n-- Down migration is not supported in automatic conversion\n",
+			expected: "-- +goose Up\nCREATE FUNCTION test() RETURNS void AS $$\nBEGIN\nEND\n$$ LANGUAGE plpgsql\n\n-- +goose Down\n-- Down migration is not supported in automatic conversion\n",
 		},
 		// 函数定义中有多个分号
 		{
@@ -337,7 +351,7 @@ BEGIN
     PERFORM func2();
 END;
 $$ LANGUAGE plpgsql;`,
-			expected: "-- +goose Up\n-- +goose StatementBegin\nCREATE FUNCTION test() RETURNS void AS $$\nBEGIN\n    PERFORM func1();\n    PERFORM func2();\nEND;\n$$ LANGUAGE plpgsql;\n-- +goose StatementEnd\n\n-- +goose Down\n-- Down migration is not supported in automatic conversion\n",
+			expected: "-- +goose Up\n\n-- +goose StatementBegin\nCREATE FUNCTION test() RETURNS void AS $$\nBEGIN\n    PERFORM func1();\n    PERFORM func2();\nEND;\n$$ LANGUAGE plpgsql;\n-- +goose StatementEnd\n\n-- +goose Down\n-- Down migration is not supported in automatic conversion\n",
 		},
 	}
 

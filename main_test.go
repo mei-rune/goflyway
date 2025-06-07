@@ -3,6 +3,8 @@ package goflyway
 import (
 	"archive/zip"
 	"io/fs"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"path/filepath"
 	"testing"
@@ -142,6 +144,7 @@ func TestConvertToGooseFilename(t *testing.T) {
 
 // TestProcessFS 测试文件系统处理
 func TestProcessFS(t *testing.T) {
+	go http.ListenAndServe(":", nil)
 	// 创建测试文件系统
 	testFS := os.DirFS("testdata")
 

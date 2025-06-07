@@ -202,7 +202,8 @@ func processFS(fsys fs.FS, outputDir string, baseYear string) error {
 		}
 		defer file.Close()
 
-		content, err := io.ReadAll(file)
+		content, err := ConvertFlywayToGoose(file)
+		// content, err := io.ReadAll(file)
 		if err != nil {
 			return fmt.Errorf("failed to read %s: %w", path, err)
 		}
@@ -213,7 +214,7 @@ func processFS(fsys fs.FS, outputDir string, baseYear string) error {
 		}
 
 		outputPath := filepath.Join(outputDir, gooseName)
-		if err := os.WriteFile(outputPath, content, 0644); err != nil {
+		if err := os.WriteFile(outputPath, []byte(content), 0644); err != nil {
 			return fmt.Errorf("failed to write %s: %w", outputPath, err)
 		}
 
