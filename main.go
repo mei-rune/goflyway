@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/pressly/goose/v3"
+	"github.com/dimchansky/utfbom"
 )
 
 type Config struct {
@@ -180,7 +181,12 @@ func getInputFS(inputPath string) (fs.FS, io.Closer, error) {
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to open JAR file: %w", err)
 		}
-		return zipFS, zipFS, nil
+		subFs, err := fs.Sub(zipFS, "db/migration")
+		if err != nil {
+			zipFS.Close()
+			return nil, nil, fmt.Errorf("failed to change sub dir(db/migration): %w", err)
+		}
+		return subFs, zipFS, nil
 	}
 	return os.DirFS(inputPath), nil, nil
 }
@@ -192,7 +198,20 @@ func processFS(fsys fs.FS, outputDir string, baseYear string) error {
 			return err
 		}
 
-		if d.IsDir() || !isFlywayFilename(path) {
+		if d.IsDir() {
+			return nil
+		}
+
+		if !isFlywayFilename(path) {
+			if ext := filepath.Ext(path); strings.ToLower(ext) == ".jar" {
+				subfs, closer, err := getInputFS(path)
+				if err != nil {
+					return err
+				}
+				defer closer.Close()
+
+				return processFS(subfs, outputDir, baseYear)
+			}
 			return nil
 		}
 
@@ -202,7 +221,7 @@ func processFS(fsys fs.FS, outputDir string, baseYear string) error {
 		}
 		defer file.Close()
 
-		content, err := ConvertFlywayToGoose(file)
+		content, err := ConvertFlywayToGoose(utfbom.SkipOnly(file))
 		// content, err := io.ReadAll(file)
 		if err != nil {
 			return fmt.Errorf("failed to read %s: %w", path, err)
@@ -280,8 +299,14 @@ func convertToGooseTimestamp(versionStr string, baseYear string) (string, error)
 // parseFlywayVersion 解析 Flyway 版本号
 func parseFlywayVersion(versionStr string) (major, minor, patch int, err error) {
 	parts := strings.Split(versionStr, ".")
-	if len(parts) == 0 || len(parts) > 3 {
+	if len(parts) > 3 {
 		return 0, 0, 0, fmt.Errorf("version format should be Vx.x.xxx")
+	}
+	if len(parts) == 1 {
+		parts = strings.Split(versionStr, "_")
+		if len(parts) > 3 {
+			return 0, 0, 0, fmt.Errorf("version format should be Vx.x.xxx")
+		}
 	}
 
 	major, err = strconv.Atoi(parts[0])
@@ -293,7 +318,7 @@ func parseFlywayVersion(versionStr string) (major, minor, patch int, err error) 
 	}
 
 	minor, err = strconv.Atoi(parts[1])
-	if err != nil || minor < 1 || minor > 31 {
+	if err != nil || minor < 0 || minor > 31 {
 		return 0, 0, 0, fmt.Errorf("minor version must be 1-31")
 	}
 	if len(parts) == 2 {

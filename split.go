@@ -260,14 +260,16 @@ func (t *Tokenizer) readWord(first rune) (Token, error) {
 	case "DELIMITER":
 		return processDelimiterCommand(t.reader, word)
 	case "AS":
-		return t.processAsBlockStart(word)
+		return t.processCodeBlockStart(word)
+	case "DO":
+		return t.processCodeBlockStart(word)
 	default:
 		return Token{Type: TokenText, Value: word}, nil
 	}
 }
 
 // 处理 AS 后的块分隔符开始
-func (t *Tokenizer) processAsBlockStart(word string) (Token, error) {
+func (t *Tokenizer) processCodeBlockStart(word string) (Token, error) {
 	var result strings.Builder
 	result.WriteString(word)
 

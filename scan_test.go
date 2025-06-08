@@ -331,7 +331,7 @@ func TestConvertFlywayToGoose_EdgeCases(t *testing.T) {
 			name: "comments only",
 			input: `-- 只有注释
 /* 块注释 */`,
-			expected: "-- +goose Up\n-- 只有注释\n/* 块注释 */\n\n-- +goose Down\n-- Down migration is not supported in automatic conversion\n",
+			expected: "-- +goose Up\n-- 只有注释\n/* 块注释 */\n;\n\n-- +goose Down\n-- Down migration is not supported in automatic conversion\n",
 		},
 		// 函数定义中没有分号
 		{
@@ -340,7 +340,7 @@ func TestConvertFlywayToGoose_EdgeCases(t *testing.T) {
 BEGIN
 END
 $$ LANGUAGE plpgsql`,
-			expected: "-- +goose Up\nCREATE FUNCTION test() RETURNS void AS $$\nBEGIN\nEND\n$$ LANGUAGE plpgsql\n\n-- +goose Down\n-- Down migration is not supported in automatic conversion\n",
+			expected: "-- +goose Up\nCREATE FUNCTION test() RETURNS void AS $$\nBEGIN\nEND\n$$ LANGUAGE plpgsql\n;\n\n-- +goose Down\n-- Down migration is not supported in automatic conversion\n",
 		},
 		// 函数定义中有多个分号
 		{
