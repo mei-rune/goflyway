@@ -2,6 +2,7 @@ package goflyway
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -29,6 +30,9 @@ func CopyMigrateTable(
 	// 3. 获取最新Flyway版本记录
 	version, desc, installedOn, err := getLatestFlywayVersion(db, driver, flywayTable)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("Flyway表 %s 无版本记录", flywayTable)
+		}
 		return fmt.Errorf("读取Flyway版本失败: %w", err)
 	}
 	if version == "" {
