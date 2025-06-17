@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pressly/goose/v3"
 	"github.com/dimchansky/utfbom"
+	"github.com/pressly/goose/v3"
 )
 
 type Config struct {

@@ -443,7 +443,7 @@ func readUntilDelimiter(reader *bufio.Reader, delim string) (string, string, err
 		}
 
 		if strings.HasSuffix(strings.ToUpper(s), "DELIMITER") {
-			tmp := s[:len(s) - len("DELIMITER")]
+			tmp := s[:len(s)-len("DELIMITER")]
 			if tmp != "" {
 				last := tmp[len(tmp)-1]
 				if last != ';' && !unicode.IsSpace(rune(last)) {

@@ -6,6 +6,8 @@ require (
 	gitee.com/chunanyong/dm v1.8.20
 	gitee.com/opengauss/openGauss-connector-go-pq v1.0.7
 	gitee.com/runner.mei/gokb v0.0.0-20211216112635-582e81b3d7ad
+	github.com/DATA-DOG/go-sqlmock v1.5.2
+	github.com/dimchansky/utfbom v1.1.1
 	github.com/go-sql-driver/mysql v1.9.2
 	github.com/lib/pq v1.10.9
 	github.com/microsoft/go-mssqldb v1.8.2
@@ -17,7 +19,6 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
-	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/golang-sql/civil v0.0.0-20220223132316-b832511892a9 // indirect
 	github.com/golang-sql/sqlexp v0.1.0 // indirect

@@ -6,7 +6,7 @@ import (
 	"unicode"
 )
 
-var SqlHandleHooks []func(string) (string, error) 
+var SqlHandleHooks []func(string) (string, error)
 
 // ConvertFlywayToGoose 将 Flyway SQL 转换为 Goose SQL 格式
 func ConvertFlywayToGoose(in io.Reader) (string, error) {
@@ -39,7 +39,6 @@ func ConvertFlywayToGoose(in io.Reader) (string, error) {
 
 		// 检查语句是否包含内部分号（除结尾分号外）
 		hasInternalSemicolon := hasInternalSemicolon(trimmedStmt)
-
 
 		for _, hook := range SqlHandleHooks {
 			trimmedStmt, err = hook(trimmedStmt)

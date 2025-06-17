@@ -86,7 +86,6 @@ func TestCustomDelimiter2(t *testing.T) {
 	}
 }
 
-
 func TestCustomDelimiter3(t *testing.T) {
 	input := "DELIMITER //\nDELIMITER33 proc()//\nDELIMITER ;"
 	expected := []string{"DELIMITER33 proc()"}
