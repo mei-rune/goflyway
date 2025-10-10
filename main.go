@@ -24,7 +24,7 @@ type Config struct {
 }
 
 func Convert(inputPath, outputDir, baseYear string) (string, error) {
-	inputFS, closer, err := getInputFS(inputPath)
+	inputFS, closer, err := getInputFS(nil, inputPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to initialize input filesystem: %w", err)
 	}
@@ -175,25 +175,62 @@ func printUsage() {
 }
 
 // getInputFS 根据输入路径返回适当的文件系统实现
-func getInputFS(inputPath string) (fs.FS, io.Closer, error) {
+func getInputFS(fsys fs.FS, inputPath string) (fs.FS, io.Closer, error) {
 	if strings.HasSuffix(strings.ToLower(inputPath), ".jar") {
-		zipFS, err := zip.OpenReader(inputPath)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to open JAR file: %w", err)
+
+		var filefs fs.FS
+		var closer io.Closer
+
+		if fsys != nil {
+				f, err := fsys.Open(inputPath)
+				if err != nil {
+					return nil, nil, fmt.Errorf("failed to open JAR file: %w", err)
+				}
+				fi, err := f.Stat()
+				if err != nil {
+					f.Close()
+					return nil, nil, fmt.Errorf("failed to read JAR file size: %w", err)
+				}
+
+				zipFS, err := zip.NewReader(f.(io.ReaderAt), fi.Size())
+				if err != nil {
+					return nil, nil, fmt.Errorf("failed to open JAR file: %w", err)
+				}
+				filefs = zipFS
+				closer = f
+		} else {
+			zipFS, err := zip.OpenReader(inputPath)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to open JAR file: %w", err)
+			}
+			filefs = zipFS
+			closer = zipFS
 		}
-		subFs, err := fs.Sub(zipFS, "db/migration")
+		subFs, err := fs.Sub(filefs, "db/migration")
 		if err != nil {
-			zipFS.Close()
+			closer.Close()
 			return nil, nil, fmt.Errorf("failed to change sub dir(db/migration): %w", err)
 		}
-		return subFs, zipFS, nil
+		return subFs, closer, nil
 	}
-	return os.DirFS(inputPath), nil, nil
+	if fsys == nil {
+		return os.DirFS(inputPath), nil, nil
+	}
+	dir, err := fs.Sub(fsys, inputPath)
+	return dir, nil, err
 }
 
 // processFS 处理文件系统中的 Flyway 迁移文件
 func processFS(fsys fs.FS, outputDir string, baseYear string) error {
 	return fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
+		if path == "." {
+			return nil
+		}
+
+		if path == ".." {
+			return nil
+		}
+
 		if err != nil {
 			return err
 		}
@@ -204,7 +241,7 @@ func processFS(fsys fs.FS, outputDir string, baseYear string) error {
 
 		if !isFlywayFilename(path) {
 			if ext := filepath.Ext(path); strings.ToLower(ext) == ".jar" {
-				subfs, closer, err := getInputFS(path)
+				subfs, closer, err := getInputFS(fsys, path)
 				if err != nil {
 					return err
 				}
