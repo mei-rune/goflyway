@@ -85,10 +85,22 @@ func ConvertFlywayToGoose(in io.Reader) (string, error) {
 
 // hasInternalSemicolon 检查语句是否包含内部分号（非结尾分号）
 func hasInternalSemicolon(stmt string) bool {
-	// 去除尾部空白和分号
-	trimmed := strings.TrimRightFunc(stmt, func(r rune) bool {
+	trimFunc := func(r rune) bool {
 		return r == ' ' || r == '\t' || r == '\n' || r == '\r' || r == ';'
-	})
+	}
+
+	lines := strings.Split(stmt, "\n")
+	offset := 0
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "--") {
+			break
+		}
+		offset ++
+	}
+
+	// 去除尾部空白和分号
+	trimmed := strings.TrimRightFunc(strings.Join(lines[offset:], "\n"), trimFunc)
 
 	// 检查剩余部分是否包含分号
 	return strings.Contains(trimmed, ";")

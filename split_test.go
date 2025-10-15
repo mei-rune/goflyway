@@ -13,6 +13,27 @@ func TestMultipleStatements(t *testing.T) {
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("Expected: %v, Got: %v", expected, result)
 	}
+
+	commentLine := "-- abc;\n"
+		input = "SELECT 1; SELECT 2;"
+	result, _ = Split(strings.NewReader(commentLine + commentLine + input))
+
+	expected = []string{ commentLine + commentLine + "SELECT 1;", " SELECT 2;"}
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("Expected: %v, Got: %v", expected, result)
+	}
+
+	input1 := "SELECT 1;"
+	input2 := "SELECT 2;"
+
+	result, _ = Split(strings.NewReader(commentLine + commentLine + input1+"\n"+commentLine+input2+commentLine))
+	expected = []string{ commentLine + commentLine + input1, "\n" + commentLine + input2, strings.TrimSpace(commentLine)}
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("Expected: %v, Got: %v", expected, result)
+		for _, s := range result {
+			t.Error(s)
+		}
+	}
 }
 
 func TestFunctionWithSemicolon(t *testing.T) {
