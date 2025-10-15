@@ -182,22 +182,22 @@ func getInputFS(fsys fs.FS, inputPath string) (fs.FS, io.Closer, error) {
 		var closer io.Closer
 
 		if fsys != nil {
-				f, err := fsys.Open(inputPath)
-				if err != nil {
-					return nil, nil, fmt.Errorf("failed to open JAR file: %w", err)
-				}
-				fi, err := f.Stat()
-				if err != nil {
-					f.Close()
-					return nil, nil, fmt.Errorf("failed to read JAR file size: %w", err)
-				}
+			f, err := fsys.Open(inputPath)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to open JAR file: %w", err)
+			}
+			fi, err := f.Stat()
+			if err != nil {
+				f.Close()
+				return nil, nil, fmt.Errorf("failed to read JAR file size: %w", err)
+			}
 
-				zipFS, err := zip.NewReader(f.(io.ReaderAt), fi.Size())
-				if err != nil {
-					return nil, nil, fmt.Errorf("failed to open JAR file: %w", err)
-				}
-				filefs = zipFS
-				closer = f
+			zipFS, err := zip.NewReader(f.(io.ReaderAt), fi.Size())
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to open JAR file: %w", err)
+			}
+			filefs = zipFS
+			closer = f
 		} else {
 			zipFS, err := zip.OpenReader(inputPath)
 			if err != nil {

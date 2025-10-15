@@ -475,8 +475,36 @@ func readUntilDelimiter(reader *bufio.Reader, delim string) (string, string, err
 
 // Split 分割 SQL 语句
 func Split(in io.Reader) ([]string, error) {
-	tokenizer := NewTokenizer(in)
+	blocks, tokens := splitByDelimiter(in)
 	var statements []string
+
+	for idx, block := range blocks {
+		if tokens[idx] {
+			statements = append(statements, block)
+			continue
+		}
+		if isEmptyOrComments(block) {
+			statements = append(statements, block)
+			continue
+		}
+
+		lines, err := splitBlock(strings.NewReader(block))
+		if err != nil {
+			return nil, err
+		}
+
+		if len(lines) > 0 {
+			statements = append(statements, lines...)
+		}
+	}
+
+	return statements, nil
+}
+
+// Split 分割 SQL 语句
+func splitBlock(in io.Reader) ([]string, error) {
+	var statements []string
+	tokenizer := NewTokenizer(in)
 	var stmtBuilder strings.Builder
 	beginDepth := 0
 	currentDelim := ";"
@@ -556,7 +584,7 @@ func Split(in io.Reader) ([]string, error) {
 	}
 
 	// 添加最后一条语句（如果存在）
-	if stmtBuilder.Len() > 0 {
+	if stmtBuilder.Len() > 0 && strings.TrimSpace(stmtBuilder.String()) != "" {
 		statements = append(statements, stmtBuilder.String())
 	}
 

@@ -191,7 +191,7 @@ func TestProcessFS(t *testing.T) {
 // TestGetInputFS 测试获取输入文件系统
 func TestGetInputFS(t *testing.T) {
 	// 测试目录文件系统
-	dirFS, closer, err := getInputFS("testdata")
+	dirFS, closer, err := getInputFS(nil, "testdata")
 	if err != nil {
 		t.Errorf("getInputFS() with dir error = %v", err)
 	}
@@ -207,7 +207,7 @@ func TestGetInputFS(t *testing.T) {
 	createTestJar(jarPath)
 
 	// 测试JAR文件系统
-	jarFS, closer, err := getInputFS(jarPath)
+	jarFS, closer, err := getInputFS(nil, jarPath)
 	if err != nil {
 		t.Errorf("getInputFS() with jar error = %v", err)
 	}

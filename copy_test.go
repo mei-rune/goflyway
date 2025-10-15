@@ -174,7 +174,7 @@ type FlywayRecord struct {
 	InstalledOn time.Time
 }
 
-type  GooseRecord struct {
+type GooseRecord struct {
 	VersionID   int64
 	Description string
 	IsApplied   bool

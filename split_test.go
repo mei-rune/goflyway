@@ -104,3 +104,45 @@ func TestQuotedSemicolon(t *testing.T) {
 		t.Errorf("Expected: %v, Got: %v", expected, result)
 	}
 }
+
+func TestSplitWithStatementSplit(t *testing.T) {
+	input := `DROP FUNCTION IF EXISTS XXXX1;
+
+-- +goose StatementBegin
+CREATE OR REPLACE FUNCTION XXXX(TEXT)
+RETURNS VOID AS $function$
+BEGIN
+	XXXX
+END;
+$function$ language plpgsql;
+-- +goose StatementEnd
+
+DROP FUNCTION IF EXISTS XXXX1;
+`
+	expected := []string{
+		`DROP FUNCTION IF EXISTS XXXX1;`,
+		`-- +goose StatementBegin
+CREATE OR REPLACE FUNCTION XXXX(TEXT)
+RETURNS VOID AS $function$
+BEGIN
+	XXXX
+END;
+$function$ language plpgsql;
+-- +goose StatementEnd`,
+		`DROP FUNCTION IF EXISTS XXXX1;`,
+	}
+	result, _ := Split(strings.NewReader(input))
+
+	if len(result) != len(expected) {
+		t.Errorf("Expected: %v, Got: %v", len(expected), len(result))
+		for _, s := range result {
+			t.Error(s)
+		}
+		return
+	}
+	for idx := range result {
+		if strings.TrimSpace(result[idx]) != strings.TrimSpace(expected[idx]) {
+			t.Errorf("Expected: %v, Got: %v", strings.TrimSpace(expected[idx]), strings.TrimSpace(result[idx]))
+		}
+	}
+}
