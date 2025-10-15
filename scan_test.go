@@ -14,6 +14,27 @@ func TestConvertFlywayToGoose(t *testing.T) {
 		// 基础测试用例
 		{
 			name: "simple function",
+			input: `--- a
+--- b;
+select 1;
+
+--c
+select 2;`,
+			expected: `-- +goose Up
+--- a
+--- b;
+select 1;
+
+
+--c
+select 2;
+
+-- +goose Down
+-- Down migration is not supported in automatic conversion
+`,
+		},
+		{
+			name: "simple function",
 			input: `CREATE FUNCTION test() RETURNS void AS $$
 BEGIN
 END;
