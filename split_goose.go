@@ -23,6 +23,8 @@ func splitByDelimiter(r io.Reader) (stmts []string, tokens []bool) {
 func SplitByDelimiter(r io.Reader, prefix string) ([]string, []bool) {
 	var buf strings.Builder
 	scanner := bufio.NewScanner(r)
+	maxSize := 8 * 1024 * 1024
+	scanner.Buffer(make([]byte, maxSize), maxSize)
 
 	isFirst := true
 	inStatementBlock := false
