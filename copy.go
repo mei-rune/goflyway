@@ -16,6 +16,12 @@ func IsTableAlreadyExists(err error) bool {
 	strings.Contains(err.Error(), "已经存在") 
 }
 
+
+func IsTableNotExists(err error) bool {
+	return strings.Contains(err.Error(), "does not exist") ||
+	strings.Contains(err.Error(), "不存在")
+}
+
 // 重命名函数：CopyMigrateTable
 func CopyMigrateTable(
 	driver string,
@@ -29,12 +35,7 @@ func CopyMigrateTable(
 		return fmt.Errorf("表名非法: %s", err)
 	}
 
-	// 2. 创建Goose版本表（若不存在）
-	if err := createGooseTable(db, driver, gooseTable); err != nil {
-		return fmt.Errorf("创建Goose表失败: %s", err)
-	}
-
-	// 3. 获取最新Flyway版本记录
+	// 2. 获取最新Flyway版本记录
 	migrations, err := getAllFlywayVersions(db, driver, flywayTable)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -42,6 +43,12 @@ func CopyMigrateTable(
 		}
 		return fmt.Errorf("读取Flyway版本失败: %w", err)
 	}
+
+	// 3. 创建Goose版本表（若不存在）
+	if err := createGooseTable(db, driver, gooseTable); err != nil {
+		return fmt.Errorf("创建Goose表失败: %s", err)
+	}
+
 	for _, migration := range migrations {
 		if migration.version == "" {
 			return fmt.Errorf("Flyway表 %s 无版本记录", flywayTable)
@@ -124,6 +131,9 @@ func getAllFlywayVersions(
 
   rows, err := db.Query(query)
   if err != nil {
+  	if IsTableAlreadyExists(err) {
+  		return nil, sql.ErrNoRows
+  	}
   	return nil, err
   }
   defer rows.Close()
