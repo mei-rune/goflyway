@@ -6,8 +6,15 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
+
+func IsTableAlreadyExists(err error) bool {
+	return strings.Contains(err.Error(), "already exists") ||
+	strings.Contains(err.Error(), "已存在")  ||
+	strings.Contains(err.Error(), "已经存在") 
+}
 
 // 重命名函数：CopyMigrateTable
 func CopyMigrateTable(
@@ -19,38 +26,45 @@ func CopyMigrateTable(
 ) error {
 	// 1. 表名校验（防SQL注入）
 	if err := validateTableNames(flywayTable, gooseTable); err != nil {
-		return fmt.Errorf("表名非法: %w", err)
+		return fmt.Errorf("表名非法: %s", err)
 	}
 
 	// 2. 创建Goose版本表（若不存在）
 	if err := createGooseTable(db, driver, gooseTable); err != nil {
-		return fmt.Errorf("创建Goose表失败: %w", err)
+		return fmt.Errorf("创建Goose表失败: %s", err)
 	}
 
 	// 3. 获取最新Flyway版本记录
-	version, desc, installedOn, err := getLatestFlywayVersion(db, driver, flywayTable)
+	migrations, err := getAllFlywayVersions(db, driver, flywayTable)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("Flyway表 %s 无版本记录", flywayTable)
 		}
 		return fmt.Errorf("读取Flyway版本失败: %w", err)
 	}
-	if version == "" {
-		return fmt.Errorf("Flyway表 %s 无版本记录", flywayTable)
+	for _, migration := range migrations {
+		if migration.version == "" {
+			return fmt.Errorf("Flyway表 %s 无版本记录", flywayTable)
+		}
+
+		// 4. 语义化版本 → 时间戳版本号
+		timestampVersion, err := convertToGooseTimestamp(migration.version, baseYear)
+		if err != nil {
+			return fmt.Errorf("版本转换失败: %w", err)
+		}
+		versionID, err := strconv.ParseInt(timestampVersion, 10, 64)
+		if err != nil {
+			return fmt.Errorf("版本转换失败: %w", err)
+		}
+
+		// 5. 插入Goose版本表
+		err = insertGooseVersion(db, driver, gooseTable, versionID, migration.installedOn, migration.desc)
+		if err != nil {
+			return err
+		}
 	}
 
-	// 4. 语义化版本 → 时间戳版本号
-	timestampVersion, err := convertToGooseTimestamp(version, baseYear)
-	if err != nil {
-		return fmt.Errorf("版本转换失败: %w", err)
-	}
-	versionID, err := strconv.ParseInt(timestampVersion, 10, 64)
-	if err != nil {
-		return fmt.Errorf("版本转换失败: %w", err)
-	}
-
-	// 5. 插入Goose版本表
-	return insertGooseVersion(db, driver, gooseTable, versionID, installedOn, desc)
+	return nil
 }
 
 // 表名校验（正则验证）
@@ -91,22 +105,44 @@ func createGooseTable(db *sql.DB, driver, gooseTable string) error {
 	return err
 }
 
+type flywayMigrateResult struct {
+	version string
+	desc string
+	installedOn time.Time
+}
+
 // 获取最新Flyway版本（安全查询）
-func getLatestFlywayVersion(
+func getAllFlywayVersions(
 	db *sql.DB,
 	driver string,
 	flywayTable string,
-) (string, string, time.Time, error) {
+) ([]flywayMigrateResult, error) {
 	// 使用参数化避免SQL注入（表名已校验）
 	query := fmt.Sprintf(`SELECT version, description, installed_on 
                           FROM %s 
-                          ORDER BY installed_on DESC 
-                          LIMIT 1`, flywayTable)
+                          ORDER BY installed_on ASC`, flywayTable)
 
-	var version, desc string
-	var installedOn time.Time
-	err := db.QueryRow(query).Scan(&version, &desc, &installedOn)
-	return version, desc, installedOn, err
+  rows, err := db.Query(query)
+  if err != nil {
+  	return nil, err
+  }
+  defer rows.Close()
+
+  var results []flywayMigrateResult
+  for rows.Next() {
+  	var result flywayMigrateResult
+		err := rows.Scan(&result.version, &result.desc, &result.installedOn)
+		if err != nil {
+			return nil, err
+		}
+
+		results = append(results, result)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return results, nil
 }
 
 // 插入Goose版本记录
