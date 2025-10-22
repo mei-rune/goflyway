@@ -97,7 +97,7 @@ func createGooseTable(db *sql.DB, driver, gooseTable string) error {
       tstamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       description VARCHAR(255)
     )`, gooseTable)
-	case "postgres":
+	case "postgres", "opengauss", "gaussdb", "kingbase", "pgx", "pgx/v5":
 		createSQL = fmt.Sprintf(`CREATE TABLE %s (
       id BIGSERIAL PRIMARY KEY,
       version_id BIGINT NOT NULL,
@@ -173,7 +173,7 @@ func insertGooseVersion(
       (version_id, is_applied, tstamp, description) 
       VALUES (?, ?, ?, ?)`, gooseTable)
 		args = []interface{}{version, 1, t.UTC(), desc}
-	case "postgres":
+	case "postgres", "opengauss", "gaussdb", "kingbase", "pgx", "pgx/v5":
 		insertSQL = fmt.Sprintf(`INSERT INTO %s 
       (version_id, is_applied, tstamp, description) 
       VALUES ($1, $2, $3, $4)`, gooseTable)
