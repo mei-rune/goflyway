@@ -39,9 +39,9 @@ func CopyMigrateTable(
 	migrations, err := getAllFlywayVersions(db, driver, flywayTable)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("Flyway表 %s 无版本记录", flywayTable)
+			return nil // fmt.Errorf("Flyway表 %s 无版本记录", flywayTable)
 		}
-		return fmt.Errorf("读取Flyway版本失败: %w", err)
+		return fmt.Errorf("读取Flyway版本失败: %s", err)
 	}
 
 	// 3. 创建Goose版本表（若不存在）
@@ -57,11 +57,11 @@ func CopyMigrateTable(
 		// 4. 语义化版本 → 时间戳版本号
 		timestampVersion, err := convertToGooseTimestamp(migration.version, baseYear)
 		if err != nil {
-			return fmt.Errorf("版本转换失败: %w", err)
+			return fmt.Errorf("版本转换失败: %s", err)
 		}
 		versionID, err := strconv.ParseInt(timestampVersion, 10, 64)
 		if err != nil {
-			return fmt.Errorf("版本转换失败: %w", err)
+			return fmt.Errorf("版本转换失败: %s", err)
 		}
 
 		// 5. 插入Goose版本表
@@ -131,7 +131,7 @@ func getAllFlywayVersions(
 
   rows, err := db.Query(query)
   if err != nil {
-  	if IsTableAlreadyExists(err) {
+  	if IsTableNotExists(err) {
   		return nil, sql.ErrNoRows
   	}
   	return nil, err
