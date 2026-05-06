@@ -12,14 +12,13 @@ import (
 
 func IsTableAlreadyExists(err error) bool {
 	return strings.Contains(err.Error(), "already exists") ||
-	strings.Contains(err.Error(), "已存在")  ||
-	strings.Contains(err.Error(), "已经存在") 
+		strings.Contains(err.Error(), "已存在") ||
+		strings.Contains(err.Error(), "已经存在")
 }
-
 
 func IsTableNotExists(err error) bool {
 	return strings.Contains(err.Error(), "does not exist") ||
-	strings.Contains(err.Error(), "不存在")
+		strings.Contains(err.Error(), "不存在")
 }
 
 // 重命名函数：CopyMigrateTable
@@ -39,9 +38,14 @@ func CopyMigrateTable(
 	migrations, err := getAllFlywayVersions(db, driver, flywayTable)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil // fmt.Errorf("Flyway表 %s 无版本记录", flywayTable)
+			return fmt.Errorf("Flyway表 %s 无版本记录", flywayTable)
 		}
 		return fmt.Errorf("读取Flyway版本失败: %s", err)
+	}
+
+	// 检查是否为空表
+	if len(migrations) == 0 {
+		return fmt.Errorf("Flyway表 %s 无版本记录", flywayTable)
 	}
 
 	// 3. 创建Goose版本表（若不存在）
@@ -113,8 +117,8 @@ func createGooseTable(db *sql.DB, driver, gooseTable string) error {
 }
 
 type flywayMigrateResult struct {
-	version string
-	desc string
+	version     string
+	desc        string
 	installedOn time.Time
 }
 
@@ -129,18 +133,18 @@ func getAllFlywayVersions(
                           FROM %s 
                           ORDER BY installed_on ASC`, flywayTable)
 
-  rows, err := db.Query(query)
-  if err != nil {
-  	if IsTableNotExists(err) {
-  		return nil, sql.ErrNoRows
-  	}
-  	return nil, err
-  }
-  defer rows.Close()
+	rows, err := db.Query(query)
+	if err != nil {
+		if IsTableNotExists(err) {
+			return nil, sql.ErrNoRows
+		}
+		return nil, err
+	}
+	defer rows.Close()
 
-  var results []flywayMigrateResult
-  for rows.Next() {
-  	var result flywayMigrateResult
+	var results []flywayMigrateResult
+	for rows.Next() {
+		var result flywayMigrateResult
 		err := rows.Scan(&result.version, &result.desc, &result.installedOn)
 		if err != nil {
 			return nil, err

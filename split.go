@@ -384,7 +384,6 @@ func (t *Tokenizer) readUntilRune(delim rune) (string, error) {
 
 func processDelimiterCommand(in *bufio.Reader, commandStart string) (Token, error) {
 	var builder strings.Builder
-	builder.WriteString(commandStart)
 
 	for {
 		r, _, err := in.ReadRune()
@@ -401,11 +400,11 @@ func processDelimiterCommand(in *bufio.Reader, commandStart string) (Token, erro
 	}
 
 	fullCommand := builder.String()
-	delimPart := strings.TrimSpace(strings.TrimPrefix(fullCommand, "DELIMITER"))
+	delimPart := strings.TrimSpace(fullCommand)
 	return Token{
 		Type:          TokenDelimiterCommand,
-		Value:         fullCommand,
-		DelimiterWord: strings.TrimSpace(delimPart),
+		Value:         commandStart + fullCommand,
+		DelimiterWord: delimPart,
 	}, nil
 }
 
@@ -549,6 +548,7 @@ func splitBlock(in io.Reader) ([]string, error) {
 
 		switch token.Type {
 		case TokenSemicolon:
+			// fmt.Println("=======TokenSemicolon", token.Value)
 			if beginDepth == 0 {
 				// 关键修复：将分号添加到当前语句
 				stmtBuilder.WriteString(token.Value)
@@ -564,6 +564,7 @@ func splitBlock(in io.Reader) ([]string, error) {
 			}
 
 		case TokenBegin:
+			// fmt.Println("=======Begin",  token.Value)
 			beginDepth++
 			stmtBuilder.WriteString(token.Value)
 
@@ -574,11 +575,19 @@ func splitBlock(in io.Reader) ([]string, error) {
 			stmtBuilder.WriteString(token.Value)
 
 		case TokenDelimiterCommand:
+			if stmtBuilder.Len() > 0 {
+				s := strings.TrimSpace(stmtBuilder.String())
+				if s != "" {
+					statements = append(statements, stmtBuilder.String())
+				}
+			}
 			currentDelim = token.DelimiterWord
 			stmtBuilder.Reset()
-			// stmtBuilder.WriteString(token.Value)
+
+			// fmt.Println("=======TokenDelimiterCommand", token.DelimiterWord)
 
 		case TokenText:
+			// fmt.Println("=======TokenText", token.Value)
 			stmtBuilder.WriteString(token.Value)
 		}
 	}

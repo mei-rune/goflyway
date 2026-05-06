@@ -96,7 +96,7 @@ func hasInternalSemicolon(stmt string) bool {
 		if !strings.HasPrefix(line, "--") {
 			break
 		}
-		offset ++
+		offset++
 	}
 
 	// 去除尾部空白和分号

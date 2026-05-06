@@ -16,13 +16,15 @@ func TestCopyMigrateTable_NormalCase(t *testing.T) {
 	db, mock, _ := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	defer db.Close()
 
-	mock.ExpectExec(`CREATE TABLE goose_versions ( id BIGINT AUTO_INCREMENT PRIMARY KEY, version_id BIGINT NOT NULL, is_applied TINYINT DEFAULT 1 NOT NULL, -- 默认标记为已应用 tstamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP, description VARCHAR(255) )`).WillReturnResult(sqlmock.NewResult(1, 1))
-
 	// 模拟 Flyway 表数据（单条记录）
 	flywayRow := sqlmock.NewRows([]string{"version", "description", "installed_on"}).
 		AddRow("1.2.030405", "Initial schema", time.Now())
-	mock.ExpectQuery(`SELECT version, description, installed_on FROM flyway_schema ORDER BY installed_on DESC LIMIT 1`).
+	mock.ExpectQuery(`SELECT version, description, installed_on 
+                          FROM flyway_schema 
+                          ORDER BY installed_on ASC`).
 		WillReturnRows(flywayRow)
+
+	mock.ExpectExec(`CREATE TABLE goose_versions ( id BIGINT AUTO_INCREMENT PRIMARY KEY, version_id BIGINT NOT NULL, is_applied TINYINT DEFAULT 1 NOT NULL, -- 默认标记为已应用 tstamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP, description VARCHAR(255) )`).WillReturnResult(sqlmock.NewResult(1, 1))
 
 	// 预期 Goose 表操作
 	// mock.ExpectExec(regexp.QuoteMeta(`CREATE TABLE goose_versions`)).
@@ -82,9 +84,12 @@ func TestInvalidTableNames(t *testing.T) {
 
 func TestEmptyFlywayTable(t *testing.T) {
 	db, mock, _ := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	mock.ExpectExec(`CREATE TABLE goose_ver ( id BIGINT AUTO_INCREMENT PRIMARY KEY, version_id BIGINT NOT NULL, is_applied TINYINT DEFAULT 1 NOT NULL, -- 默认标记为已应用 tstamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP, description VARCHAR(255) )`).WillReturnResult(sqlmock.NewResult(1, 1))
-	mock.ExpectQuery(`SELECT version, description, installed_on FROM flyway_history ORDER BY installed_on DESC LIMIT 1`).
+	mock.ExpectQuery(`SELECT version, description, installed_on 
+                          FROM flyway_history 
+                          ORDER BY installed_on ASC`).
 		WillReturnRows(sqlmock.NewRows([]string{"version", "description", "installed_on"})) // 空结果集
+
+	mock.ExpectExec(`CREATE TABLE goose_ver ( id BIGINT AUTO_INCREMENT PRIMARY KEY, version_id BIGINT NOT NULL, is_applied TINYINT DEFAULT 1 NOT NULL, -- 默认标记为已应用 tstamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP, description VARCHAR(255) )`).WillReturnResult(sqlmock.NewResult(1, 1))
 
 	err := CopyMigrateTable("mysql", db, "flyway_history", "goose_ver", "2025")
 	if err == nil || !strings.Contains(err.Error(), "无版本记录") {
