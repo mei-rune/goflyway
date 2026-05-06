@@ -4,13 +4,12 @@ import (
 	"io"
 	"regexp"
 	"strings"
-	"unicode"
 )
 
 var SqlHandleHooks []func(string) (string, error)
 
-// 预编译的正则表达式，用于匹配 Goose StatementBegin 指令
-var gooseStatementBeginRE = regexp.MustCompile(`(?i)--\s*\+goose\s+StatementBegin`)
+// 预编译的正则表达式，用于匹配 Goose StatementBegin/StatementEnd 指令（goose 部分可选）
+var gooseStatementDirectiveRE = regexp.MustCompile(`(?i)--\s*\+(goose\s+)?Statement(Begin|End)`)
 
 // ConvertFlywayToGoose 将 Flyway SQL 转换为 Goose SQL 格式
 func ConvertFlywayToGoose(in io.Reader) (string, error) {
@@ -54,7 +53,7 @@ func ConvertFlywayToGoose(in io.Reader) (string, error) {
 		////////////////////////////////////////////
 		// 我自已有一部份老代码中有这个
 		// 使用正则表达式匹配，忽略大小写和空白字符变化
-		if gooseStatementBeginRE.MatchString(trimmedStmt) {
+		if gooseStatementDirectiveRE.MatchString(trimmedStmt) {
 			hasInternalSemicolon = false
 		}
 		////////////////////////////////////////////
@@ -76,7 +75,7 @@ func ConvertFlywayToGoose(in io.Reader) (string, error) {
 	}
 
 	if len(statements) > 0 {
-		// goose 要求 sql 必须有分号结束
+		// 如果最后一个语句已经包含 Goose 指令，则不需要添加分号
 		if !hasSemicolonAtEnt(statements[len(statements)-1]) {
 			result.WriteString(";\n")
 		}
@@ -112,29 +111,18 @@ func hasInternalSemicolon(stmt string) bool {
 }
 
 func hasSemicolonAtEnt(stmt string) bool {
-	// 去除尾部空白和分号
-	trimmed := strings.TrimRightFunc(stmt, unicode.IsSpace)
-	if trimmed == "" {
-		return true
-	}
-
-	allComments := true
+	var lastNonCommentLine string
 	for _, line := range strings.Split(stmt, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "--") {
 			continue
 		}
-
-		if !strings.HasPrefix(line, "--") {
-			allComments = false
-			break
-		}
+		lastNonCommentLine = trimmed
 	}
 
-	if allComments {
+	if lastNonCommentLine == "" {
 		return true
 	}
 
-	// 检查剩余部分是否包含分号
-	return strings.HasSuffix(trimmed, ";")
+	return strings.HasSuffix(lastNonCommentLine, ";")
 }

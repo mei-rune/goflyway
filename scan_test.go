@@ -319,8 +319,6 @@ $$ LANGUAGE plpgsql;
 `,
 		},
 
-
-		// BEGIN/END嵌套测试
 		{
 			name: "all comments",
 			input: `-- abc
@@ -328,6 +326,78 @@ $$ LANGUAGE plpgsql;
 			expected: `-- +goose Up
 			-- abc
 			-- abc
+
+			-- +goose Down
+			-- Down migration is not supported in automatic conversion`,
+		},
+
+		{
+			name: "all comments",
+			input: `-- +statementBegin
+			abc
+			abc;
+			-- +statementEnd`,
+			expected: `-- +goose Up
+			-- +statementBegin
+			abc
+			abc;
+			-- +statementEnd
+
+			-- +goose Down
+			-- Down migration is not supported in automatic conversion`,
+		},
+
+		{
+			name: "need semicolon - code then comment",
+			input: `a
+-- abc`,
+			expected: `-- +goose Up
+a
+-- abc
+;
+
+-- +goose Down
+-- Down migration is not supported in automatic conversion`,
+		},
+		{
+			name:  "need semicolon - code with inline comment",
+			input: `a   -- abc`,
+			expected: `-- +goose Up
+a   -- abc
+;
+
+-- +goose Down
+-- Down migration is not supported in automatic conversion`,
+		},
+		{
+			name: "need semicolon - code then comment with semicolon",
+			input: `a
+-- abc;`,
+			expected: `-- +goose Up
+a
+-- abc;
+;
+
+-- +goose Down
+-- Down migration is not supported in automatic conversion`,
+		},
+		{
+			name: "no semicolon needed - code with semicolon then comment",
+			input: `a;
+-- abc`,
+			expected: `-- +goose Up
+a;
+
+-- abc
+
+-- +goose Down
+-- Down migration is not supported in automatic conversion`,
+		},
+		{
+			name:  "no semicolon needed - code with semicolon and inline comment",
+			input: `a;  -- abc`,
+			expected: `-- +goose Up
+a;  -- abc
 
 -- +goose Down
 -- Down migration is not supported in automatic conversion`,
@@ -342,10 +412,10 @@ $$ LANGUAGE plpgsql;
 				t.Fatalf("ConvertFlywayToGoose() error = %v", err)
 			}
 
-		normalizedResult := normalizeWhitespace(result)
-		normalizedExpected := normalizeWhitespace(tt.expected)
-		if normalizedResult != normalizedExpected {
-			//if result != tt.expected {
+			normalizedResult := normalizeWhitespace(result)
+			normalizedExpected := normalizeWhitespace(tt.expected)
+			if normalizedResult != normalizedExpected {
+				//if result != tt.expected {
 				t.Errorf("ConvertFlywayToGoose() mismatch:\nExpected:\n%s\n\nGot:\n%s", tt.expected, result)
 			}
 		})
