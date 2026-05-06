@@ -2,11 +2,15 @@ package goflyway
 
 import (
 	"io"
+	"regexp"
 	"strings"
 	"unicode"
 )
 
 var SqlHandleHooks []func(string) (string, error)
+
+// 预编译的正则表达式，用于匹配 Goose StatementBegin 指令
+var gooseStatementBeginRE = regexp.MustCompile(`(?i)--\s*\+goose\s+StatementBegin`)
 
 // ConvertFlywayToGoose 将 Flyway SQL 转换为 Goose SQL 格式
 func ConvertFlywayToGoose(in io.Reader) (string, error) {
@@ -49,7 +53,8 @@ func ConvertFlywayToGoose(in io.Reader) (string, error) {
 
 		////////////////////////////////////////////
 		// 我自已有一部份老代码中有这个
-		if strings.Contains(trimmedStmt, "-- +goose StatementBegin") {
+		// 使用正则表达式匹配，忽略大小写和空白字符变化
+		if gooseStatementBeginRE.MatchString(trimmedStmt) {
 			hasInternalSemicolon = false
 		}
 		////////////////////////////////////////////
@@ -110,6 +115,23 @@ func hasSemicolonAtEnt(stmt string) bool {
 	// 去除尾部空白和分号
 	trimmed := strings.TrimRightFunc(stmt, unicode.IsSpace)
 	if trimmed == "" {
+		return true
+	}
+
+	allComments := true
+	for _, line := range strings.Split(stmt, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		if !strings.HasPrefix(line, "--") {
+			allComments = false
+			break
+		}
+	}
+
+	if allComments {
 		return true
 	}
 

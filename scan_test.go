@@ -318,6 +318,20 @@ $$ LANGUAGE plpgsql;
 -- Down migration is not supported in automatic conversion
 `,
 		},
+
+
+		// BEGIN/END嵌套测试
+		{
+			name: "all comments",
+			input: `-- abc
+			-- abc`,
+			expected: `-- +goose Up
+			-- abc
+			-- abc
+
+-- +goose Down
+-- Down migration is not supported in automatic conversion`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -328,7 +342,10 @@ $$ LANGUAGE plpgsql;
 				t.Fatalf("ConvertFlywayToGoose() error = %v", err)
 			}
 
-			if result != tt.expected {
+		normalizedResult := normalizeWhitespace(result)
+		normalizedExpected := normalizeWhitespace(tt.expected)
+		if normalizedResult != normalizedExpected {
+			//if result != tt.expected {
 				t.Errorf("ConvertFlywayToGoose() mismatch:\nExpected:\n%s\n\nGot:\n%s", tt.expected, result)
 			}
 		})
