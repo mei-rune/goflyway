@@ -93,35 +93,54 @@ func hasInternalSemicolon(stmt string) bool {
 		return r == ' ' || r == '\t' || r == '\n' || r == '\r' || r == ';'
 	}
 
+	var sb strings.Builder
 	lines := strings.Split(stmt, "\n")
-	offset := 0
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if !strings.HasPrefix(line, "--") {
-			break
+		if line == "" {
+			continue
 		}
-		offset++
+		index := strings.Index(line, "--")
+		if index == 0 {
+			continue
+		}
+		if index > 0 {
+			line = strings.TrimSpace(line[:index])
+			if line == "" {
+				continue
+			}
+		}
+		if sb.Len() > 0 {
+			sb.WriteString("\n")
+		}
+		sb.WriteString(line)
 	}
 
 	// 去除尾部空白和分号
-	trimmed := strings.TrimRightFunc(strings.Join(lines[offset:], "\n"), trimFunc)
+	trimmed := strings.TrimRightFunc(sb.String(), trimFunc)
 
 	// 检查剩余部分是否包含分号
 	return strings.Contains(trimmed, ";")
 }
 
 func hasSemicolonAtEnt(stmt string) bool {
+	lines := strings.Split(stmt, "\n")
+
 	var lastNonCommentLine string
-	for _, line := range strings.Split(stmt, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" || strings.HasPrefix(trimmed, "--") {
-			continue
+	for i := len(lines) - 1; ; i-- {
+		if i < 0 {
+			return true
 		}
-		lastNonCommentLine = trimmed
+
+		trimmed := strings.TrimSpace(lines[i])
+		if trimmed != "" && !strings.HasPrefix(trimmed, "--") {
+			lastNonCommentLine = trimmed
+			break
+		}
 	}
 
-	if lastNonCommentLine == "" {
-		return true
+	if idx := strings.Index(lastNonCommentLine, "--"); idx != -1 {
+		lastNonCommentLine = strings.TrimSpace(lastNonCommentLine[:idx])
 	}
 
 	return strings.HasSuffix(lastNonCommentLine, ";")

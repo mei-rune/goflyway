@@ -477,3 +477,154 @@ $$ LANGUAGE plpgsql;`,
 		})
 	}
 }
+
+func TestHasInternalSemicolon(t *testing.T) {
+	tests := []struct {
+		name     string
+		stmt     string
+		expected bool
+	}{
+		{
+			name:     "simple statement with semicolon",
+			stmt:     "SELECT * FROM users;",
+			expected: false,
+		},
+		{
+			name:     "simple statement without semicolon",
+			stmt:     "SELECT * FROM users",
+			expected: false,
+		},
+		{
+			name:     "multiple lines with internal semicolon",
+			stmt:     "BEGIN\n    SELECT 1;\n    SELECT 2;\nEND;",
+			expected: true,
+		},
+		{
+			name:     "multiple lines with only trailing semicolon",
+			stmt:     "BEGIN\n    SELECT 1\nEND;",
+			expected: false,
+		},
+		{
+			name:     "leading comment then internal semicolon",
+			stmt:     "-- comment\nBEGIN\n    SELECT 1;\nEND",
+			expected: true,
+		},
+		{
+			name:     "multiple leading comments then internal semicolon",
+			stmt:     "-- comment1\n-- comment2\nBEGIN\n    SELECT 1;\nEND;",
+			expected: true,
+		},
+		{
+			name:     "inline comment with semicolon before comment",
+			stmt:     "SELECT * FROM users; -- inline comment",
+			expected: false,
+		},
+		{
+			name:     "inline comment without semicolon before comment",
+			stmt:     "SELECT * FROM users -- inline comment",
+			expected: false,
+		},
+		{
+			name:     "only comment lines",
+			stmt:     "-- comment\n-- another comment",
+			expected: false,
+		},
+		{
+			name:     "only comment lines",
+			stmt:     "-- comment;\n-- another comment",
+			expected: false,
+		},
+		{
+			name:     "complex function with internal semicolons",
+			stmt:     "CREATE FUNCTION test() RETURNS void AS $$\nBEGIN\n    PERFORM func1();\n    PERFORM func2();\nEND;\n$$ LANGUAGE plpgsql;",
+			expected: true,
+		},
+		{
+			name:     "complex function with only trailing semicolon",
+			stmt:     "CREATE FUNCTION test() RETURNS void AS $$\nBEGIN\n    RETURN;\nEND;\n$$ LANGUAGE plpgsql;",
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := hasInternalSemicolon(tt.stmt)
+			if result != tt.expected {
+				t.Errorf("hasInternalSemicolon(%q) = %v, expected %v", tt.stmt, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestHasSemicolonAtEnt(t *testing.T) {
+	tests := []struct {
+		name     string
+		stmt     string
+		expected bool
+	}{
+		{
+			name:     "statement with trailing semicolon",
+			stmt:     "SELECT * FROM users;",
+			expected: true,
+		},
+		{
+			name:     "statement without trailing semicolon",
+			stmt:     "SELECT * FROM users",
+			expected: false,
+		},
+		{
+			name:     "code then comment",
+			stmt:     "SELECT 1\n-- comment",
+			expected: false,
+		},
+		{
+			name:     "code with semicolon then comment",
+			stmt:     "SELECT 1;\n-- comment",
+			expected: true,
+		},
+		{
+			name:     "only comments",
+			stmt:     "-- comment\n-- another comment",
+			expected: true,
+		},
+		{
+			name:     "empty statement",
+			stmt:     "",
+			expected: true,
+		},
+		{
+			name:     "whitespace only",
+			stmt:     "   \n\t\n",
+			expected: true,
+		},
+		{
+			name:     "code with inline comment no trailing semicolon",
+			stmt:     "SELECT 1 -- inline comment",
+			expected: false,
+		},
+		{
+			name:     "code with inline comment and trailing semicolon",
+			stmt:     "SELECT 1; -- inline comment",
+			expected: true,
+		},
+		{
+			name:     "multiple lines last without semicolon",
+			stmt:     "SELECT 1\nSELECT 2",
+			expected: false,
+		},
+		{
+			name:     "multiple lines last with semicolon",
+			stmt:     "SELECT 1\nSELECT 2;",
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := hasSemicolonAtEnt(tt.stmt)
+			if result != tt.expected {
+				t.Errorf("hasSemicolonAtEnt(%q) = %v, expected %v", tt.stmt, result, tt.expected)
+			}
+		})
+	}
+}

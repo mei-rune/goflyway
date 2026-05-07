@@ -19,8 +19,8 @@ func TestCopyMigrateTable_NormalCase(t *testing.T) {
 	// 模拟 Flyway 表数据（单条记录）
 	flywayRow := sqlmock.NewRows([]string{"version", "description", "installed_on"}).
 		AddRow("1.2.030405", "Initial schema", time.Now())
-	mock.ExpectQuery(`SELECT version, description, installed_on 
-                          FROM flyway_schema 
+	mock.ExpectQuery(`SELECT version, description, installed_on
+                          FROM flyway_schema
                           ORDER BY installed_on ASC`).
 		WillReturnRows(flywayRow)
 
@@ -84,8 +84,8 @@ func TestInvalidTableNames(t *testing.T) {
 
 func TestEmptyFlywayTable(t *testing.T) {
 	db, mock, _ := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	mock.ExpectQuery(`SELECT version, description, installed_on 
-                          FROM flyway_history 
+	mock.ExpectQuery(`SELECT version, description, installed_on
+                          FROM flyway_history
                           ORDER BY installed_on ASC`).
 		WillReturnRows(sqlmock.NewRows([]string{"version", "description", "installed_on"})) // 空结果集
 
