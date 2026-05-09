@@ -338,10 +338,10 @@ $$ LANGUAGE plpgsql;
 			abc;
 			-- +statementEnd`,
 			expected: `-- +goose Up
-			-- +statementBegin
+			-- +goose statementBegin
 			abc
 			abc;
-			-- +statementEnd
+			-- +goose statementEnd
 
 			-- +goose Down
 			-- Down migration is not supported in automatic conversion`,

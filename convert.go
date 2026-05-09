@@ -11,6 +11,9 @@ var SqlHandleHooks []func(string) (string, error)
 // 预编译的正则表达式，用于匹配 Goose StatementBegin/StatementEnd 指令（goose 部分可选）
 var gooseStatementDirectiveRE = regexp.MustCompile(`(?i)--\s*\+(goose\s+)?Statement(Begin|End)`)
 
+// 预编译的正则表达式，用于匹配不带 goose 的 statementBegin/statementEnd 指令
+var legacyStatementDirectiveRE = regexp.MustCompile(`(?i)--\s*\+statement(Begin|End)`)
+
 // ConvertFlywayToGoose 将 Flyway SQL 转换为 Goose SQL 格式
 func ConvertFlywayToGoose(in io.Reader) (string, error) {
 	// 分割 SQL 语句
@@ -39,6 +42,9 @@ func ConvertFlywayToGoose(in io.Reader) (string, error) {
 			trimmedStmt = trimmedStmt[idx+1:]
 			result.WriteString(line)
 		}
+
+		// 转换旧的 statementBegin/statementEnd 指令为 goose 格式
+		trimmedStmt = legacyStatementDirectiveRE.ReplaceAllString(trimmedStmt, "-- +goose statement$1")
 
 		// 检查语句是否包含内部分号（除结尾分号外）
 		hasInternalSemicolon := hasInternalSemicolon(trimmedStmt)
