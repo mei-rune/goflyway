@@ -347,6 +347,24 @@ $$ LANGUAGE plpgsql;
 			-- Down migration is not supported in automatic conversion`,
 		},
 
+
+		
+		{
+			name: "all comments",
+			input: `-- +statementBegin
+			abc
+			abc;
+			-- +statementEnd`,
+			expected: `-- +goose Up
+			-- +goose statementBegin
+			abc
+			abc;
+			-- +goose statementEnd
+
+			-- +goose Down
+			-- Down migration is not supported in automatic conversion`,
+		},
+
 		{
 			name: "need semicolon - code then comment",
 			input: `a

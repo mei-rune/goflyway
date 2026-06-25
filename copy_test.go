@@ -24,6 +24,10 @@ func TestCopyMigrateTable_NormalCase(t *testing.T) {
                           ORDER BY installed_on ASC`).
 		WillReturnRows(flywayRow)
 
+
+		
+	mock.ExpectQuery(`SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ? LIMIT 1`).WillReturnRows(sqlmock.NewRows([]string{"1"}))
+
 	mock.ExpectExec(`CREATE TABLE goose_versions ( id BIGINT AUTO_INCREMENT PRIMARY KEY, version_id BIGINT NOT NULL, is_applied TINYINT DEFAULT 1 NOT NULL, -- 默认标记为已应用 tstamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP, description VARCHAR(255) )`).WillReturnResult(sqlmock.NewResult(1, 1))
 
 	// 预期 Goose 表操作

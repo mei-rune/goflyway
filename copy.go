@@ -50,7 +50,7 @@ func CopyMigrateTable(
 
 	// 3. 创建Goose版本表（若不存在）
 	if err := createGooseTable(db, driver, gooseTable); err != nil {
-		return fmt.Errorf("创建Goose表失败: %s", err)
+		return fmt.Errorf("创建Goose表 %s 失败: %s", gooseTable, err)
 	}
 
 	for _, migration := range migrations {
@@ -89,8 +89,58 @@ func validateTableNames(tables ...string) error {
 	return nil
 }
 
+func tableExists(db *sql.DB, driver, tableName string) (bool, error) {
+	var query string
+	var args []interface{}
+
+	switch driver {
+	case "mysql":
+		query = `
+			SELECT 1
+			FROM information_schema.tables
+			WHERE table_schema = DATABASE()
+			  AND table_name = ?
+			LIMIT 1
+		`
+		args = []interface{}{tableName}
+
+	case "postgres", "opengauss", "gaussdb", "kingbase", "pgx", "pgx/v5":
+		query = `
+			SELECT 1
+			FROM information_schema.tables
+			WHERE table_schema = 'public'
+			  AND table_name = $1
+			LIMIT 1
+		`
+		args = []interface{}{tableName}
+
+	default:
+		return false, fmt.Errorf("不支持的数据库类型: %s", driver)
+	}
+
+	var exists int
+	err := db.QueryRow(query, args...).Scan(&exists)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 // 动态创建Goose表
 func createGooseTable(db *sql.DB, driver, gooseTable string) error {
+		// 1. 先判断表是否存在
+	exists, err := tableExists(db, driver, gooseTable)
+	if err != nil {
+		return err
+	}
+	if exists {
+		// 表已存在，直接返回
+		return errors.New("table '"+gooseTable+"' already exists")
+	}
+
 	var createSQL string
 	switch driver {
 	case "mysql":
@@ -112,7 +162,7 @@ func createGooseTable(db *sql.DB, driver, gooseTable string) error {
 	default:
 		return fmt.Errorf("不支持的数据库类型: %s", driver)
 	}
-	_, err := db.Exec(createSQL)
+	_, err = db.Exec(createSQL)
 	return err
 }
 
