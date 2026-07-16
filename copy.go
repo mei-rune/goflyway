@@ -18,6 +18,7 @@ func IsTableAlreadyExists(err error) bool {
 
 func IsTableNotExists(err error) bool {
 	return strings.Contains(err.Error(), "does not exist") ||
+		strings.Contains(err.Error(), "doesn't exist") ||
 		strings.Contains(err.Error(), "不存在")
 }
 
