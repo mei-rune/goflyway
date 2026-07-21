@@ -25,7 +25,10 @@ func ConvertFlywayToGoose(in io.Reader) (string, error) {
 	var result strings.Builder
 	result.WriteString("-- +goose Up\n")
 
-	for _, stmt := range statements {
+	for i, stmt := range statements {
+		// 将 Windows \r\n 换行符统一转换为 Unix \n
+		stmt = strings.ReplaceAll(stmt, "\r\n", "\n")
+
 		// 保留语句中的原始换行和缩进
 		trimmedStmt := stmt
 
@@ -64,6 +67,11 @@ func ConvertFlywayToGoose(in io.Reader) (string, error) {
 		}
 		////////////////////////////////////////////
 
+			// 去除尾部空白（但不能去除 StatementEnd 后面的内容）
+		if !gooseStatementDirectiveRE.MatchString(trimmedStmt) {
+			trimmedStmt = strings.TrimRight(trimmedStmt, "\n\r\t ")
+		}
+
 		// 对于复杂语句，添加额外的 Goose 指令
 		if hasInternalSemicolon {
 			result.WriteString("\n-- +goose StatementBegin\n")
@@ -77,20 +85,25 @@ func ConvertFlywayToGoose(in io.Reader) (string, error) {
 			result.WriteString("\n-- +goose StatementEnd")
 		}
 
-		result.WriteString("\n")
-	}
-
-	if len(statements) > 0 {
-		// 如果最后一个语句已经包含 Goose 指令，则不需要添加分号
-		if !hasSemicolonAtEnt(statements[len(statements)-1]) {
-			result.WriteString(";\n")
+		// 为最后一条语句添加分号（在同一行）
+		if i == len(statements)-1 && len(statements) > 0 {
+			if !hasSemicolonAtEnt(statements[i]) {
+				result.WriteString(";\n")
+			} else {
+				result.WriteString("\n")
+			}
+		} else {
+			result.WriteString("\n")
 		}
 	}
 
 	result.WriteString("\n-- +goose Down")
 	result.WriteString("\n-- Down migration is not supported in automatic conversion")
 	result.WriteString("\n")
-	return result.String(), nil
+	// 确保使用 Unix 换行符，避免 Windows \r\n 导致 goose 解析器无法识别行尾的分号
+	finalStr := strings.ReplaceAll(result.String(), "\r\n", "\n")
+	finalStr = strings.ReplaceAll(finalStr, "\r", "")
+	return finalStr, nil
 }
 
 // hasInternalSemicolon 检查语句是否包含内部分号（非结尾分号）
