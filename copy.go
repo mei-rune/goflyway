@@ -1,28 +1,17 @@
 package goflyway
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
-	"regexp"
 	"strconv"
-	"strings"
 	"time"
+
+	"github.com/mei-rune/goose"
 )
 
-func IsTableAlreadyExists(err error) bool {
-	return strings.Contains(err.Error(), "already exists") ||
-		strings.Contains(err.Error(), "已存在") ||
-		strings.Contains(err.Error(), "已经存在")
-}
-
-func IsTableNotExists(err error) bool {
-	return strings.Contains(err.Error(), "does not exist") ||
-		strings.Contains(err.Error(), "doesn't exist") ||
-		strings.Contains(err.Error(), "不存在")
-}
-
-// 重命名函数：CopyMigrateTable
+// CopyMigrateTable copies Flyway migration records into goose's version table.
 func CopyMigrateTable(
 	driver string,
 	db *sql.DB,
@@ -31,12 +20,26 @@ func CopyMigrateTable(
 	baseYear string, // 年份
 ) error {
 	// 1. 表名校验（防SQL注入）
-	if err := validateTableNames(flywayTable, gooseTable); err != nil {
+	if err := goose.ValidateTableNames(flywayTable, gooseTable); err != nil {
 		return fmt.Errorf("表名非法: %s", err)
 	}
 
-	// 2. 获取最新Flyway版本记录
-	migrations, err := getAllFlywayVersions(db, driver, flywayTable)
+	// 2. 创建 goose Provider
+	p, err := goose.NewProvider(&goose.DBConfig{
+		DriverName: driver,
+		TableName:  gooseTable,
+	}, goose.WithConn(db))
+	if err != nil {
+		return fmt.Errorf("创建 goose provider 失败: %w", err)
+	}
+
+	// 3. 确保 goose 版本表存在
+	if _, err := p.EnsureDBVersion(context.Background()); err != nil {
+		return fmt.Errorf("ensure goose version table: %w", err)
+	}
+
+	// 4. 获取最新Flyway版本记录
+	migrations, err := getAllFlywayVersions(db, flywayTable)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("Flyway表 %s 无版本记录", flywayTable)
@@ -44,22 +47,16 @@ func CopyMigrateTable(
 		return fmt.Errorf("读取Flyway版本失败: %s", err)
 	}
 
-	// 检查是否为空表
 	if len(migrations) == 0 {
 		return fmt.Errorf("Flyway表 %s 无版本记录", flywayTable)
 	}
 
-	// 3. 创建Goose版本表（若不存在）
-	if err := createGooseTable(db, driver, gooseTable); err != nil {
-		return fmt.Errorf("创建Goose表 %s 失败: %s", gooseTable, err)
-	}
-
+	// 5. 逐条插入 goose 版本表
 	for _, migration := range migrations {
 		if migration.version == "" {
 			return fmt.Errorf("Flyway表 %s 无版本记录", flywayTable)
 		}
 
-		// 4. 语义化版本 → 时间戳版本号
 		timestampVersion, err := convertToGooseTimestamp(migration.version, baseYear)
 		if err != nil {
 			return fmt.Errorf("版本转换失败: %s", err)
@@ -69,102 +66,12 @@ func CopyMigrateTable(
 			return fmt.Errorf("版本转换失败: %s", err)
 		}
 
-		// 5. 插入Goose版本表
-		err = insertGooseVersion(db, driver, gooseTable, versionID, migration.installedOn, migration.desc)
-		if err != nil {
-			return err
+		if err := p.Dialect().InsertVersionSql(context.Background(), db, gooseTable, versionID, true, migration.desc); err != nil {
+			return fmt.Errorf("插入版本 %d 失败: %w", versionID, err)
 		}
 	}
 
 	return nil
-}
-
-// 表名校验（正则验证）
-func validateTableNames(tables ...string) error {
-	validPattern := regexp.MustCompile(`^[a-z_][a-z0-9_]{0,62}$`) // 小写字母+下划线
-	for _, tbl := range tables {
-		if !validPattern.MatchString(tbl) {
-			return fmt.Errorf("表名 %q 不符合命名规范", tbl)
-		}
-	}
-	return nil
-}
-
-func tableExists(db *sql.DB, driver, tableName string) (bool, error) {
-	var query string
-	var args []interface{}
-
-	switch driver {
-	case "mysql":
-		query = `
-			SELECT 1
-			FROM information_schema.tables
-			WHERE table_schema = DATABASE()
-			  AND table_name = ?
-			LIMIT 1
-		`
-		args = []interface{}{tableName}
-
-	case "postgres", "opengauss", "gaussdb", "kingbase", "pgx", "pgx/v5":
-		query = `
-			SELECT 1
-			FROM information_schema.tables
-			WHERE table_schema = 'public'
-			  AND table_name = $1
-			LIMIT 1
-		`
-		args = []interface{}{tableName}
-
-	default:
-		return false, fmt.Errorf("不支持的数据库类型: %s", driver)
-	}
-
-	var exists int
-	err := db.QueryRow(query, args...).Scan(&exists)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
-}
-
-// 动态创建Goose表
-func createGooseTable(db *sql.DB, driver, gooseTable string) error {
-		// 1. 先判断表是否存在
-	exists, err := tableExists(db, driver, gooseTable)
-	if err != nil {
-		return err
-	}
-	if exists {
-		// 表已存在，直接返回
-		return errors.New("table '"+gooseTable+"' already exists")
-	}
-
-	var createSQL string
-	switch driver {
-	case "mysql":
-		createSQL = fmt.Sprintf(`CREATE TABLE %s (
-      id BIGINT AUTO_INCREMENT PRIMARY KEY,
-      version_id BIGINT NOT NULL,
-      is_applied TINYINT DEFAULT 1 NOT NULL, -- 默认标记为已应用
-      tstamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      description VARCHAR(255)
-    )`, gooseTable)
-	case "postgres", "opengauss", "gaussdb", "kingbase", "pgx", "pgx/v5":
-		createSQL = fmt.Sprintf(`CREATE TABLE %s (
-      id BIGSERIAL PRIMARY KEY,
-      version_id BIGINT NOT NULL,
-      is_applied BOOLEAN DEFAULT TRUE NOT NULL,
-      tstamp TIMESTAMPTZ DEFAULT NOW(),
-      description TEXT
-    )`, gooseTable)
-	default:
-		return fmt.Errorf("不支持的数据库类型: %s", driver)
-	}
-	_, err = db.Exec(createSQL)
-	return err
 }
 
 type flywayMigrateResult struct {
@@ -173,20 +80,18 @@ type flywayMigrateResult struct {
 	installedOn time.Time
 }
 
-// 获取最新Flyway版本（安全查询）
+// getAllFlywayVersions reads all Flyway migration records in chronological order.
 func getAllFlywayVersions(
 	db *sql.DB,
-	driver string,
 	flywayTable string,
 ) ([]flywayMigrateResult, error) {
-	// 使用参数化避免SQL注入（表名已校验）
 	query := fmt.Sprintf(`SELECT version, description, installed_on 
                           FROM %s 
                           ORDER BY installed_on ASC`, flywayTable)
 
 	rows, err := db.Query(query)
 	if err != nil {
-		if IsTableNotExists(err) {
+		if goose.IsTableNotExists(err) {
 			return nil, sql.ErrNoRows
 		}
 		return nil, err
@@ -200,7 +105,6 @@ func getAllFlywayVersions(
 		if err != nil {
 			return nil, err
 		}
-
 		results = append(results, result)
 	}
 
@@ -210,34 +114,8 @@ func getAllFlywayVersions(
 	return results, nil
 }
 
-// 插入Goose版本记录
-func insertGooseVersion(
-	db *sql.DB,
-	driver string,
-	gooseTable string,
-	version int64,
-	t time.Time,
-	desc string,
-) error {
-	// 动态生成插入语句
-	var insertSQL string
-	var args []interface{}
-	switch driver {
-	case "mysql":
-		insertSQL = fmt.Sprintf(`INSERT INTO %s 
-      (version_id, is_applied, tstamp, description) 
-      VALUES (?, ?, ?, ?)`, gooseTable)
-		args = []interface{}{version, 1, t.UTC(), desc}
-	case "postgres", "opengauss", "gaussdb", "kingbase", "pgx", "pgx/v5":
-		insertSQL = fmt.Sprintf(`INSERT INTO %s 
-      (version_id, is_applied, tstamp, description) 
-      VALUES ($1, $2, $3, $4)`, gooseTable)
-		args = []interface{}{version, true, t, desc}
-	}
-
-	_, err := db.Exec(insertSQL, args...)
-	if err != nil {
-		return fmt.Errorf("插入失败: %w", err)
-	}
-	return nil
+// IsTableAlreadyExists reports whether the given error indicates that
+// a table already exists.
+func IsTableAlreadyExists(err error) bool {
+	return goose.IsTableAlreadyExists(err)
 }

@@ -240,7 +240,7 @@ func createTestJar(path string) {
 	writer.Write([]byte("CREATE TABLE test (id INT);"))
 }
 
-// TestConvertFlywayToGoose 测试完整转换流程
+// TestConvertFile 测试完整转换流程
 func TestConvertFile(t *testing.T) {
 	// 创建临时输出目录
 	tempDir := t.TempDir()

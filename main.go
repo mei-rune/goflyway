@@ -2,6 +2,7 @@ package goflyway
 
 import (
 	"archive/zip"
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -12,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/dimchansky/utfbom"
-	"github.com/pressly/goose/v3"
+	"github.com/mei-rune/goose"
 )
 
 type Config struct {
@@ -41,17 +42,16 @@ func Convert(inputPath, outputDir, baseYear string) (string, error) {
 }
 
 func migrateWithGoose(migrationsDir, driver, connString string) error {
-	db, err := goose.OpenDBWithDriver(driver, connString)
+	p, err := goose.NewProvider(&goose.DBConfig{
+		MigrationsDir: migrationsDir,
+		DriverName:    driver,
+		ConnStr:       connString,
+	})
 	if err != nil {
-		return fmt.Errorf("failed to open DB: %w", err)
+		return err
 	}
-	defer db.Close()
-
-	if err := goose.SetDialect(driver); err != nil {
-		return fmt.Errorf("failed to set dialect: %w", err)
-	}
-
-	return goose.Up(db, migrationsDir)
+	defer p.Close()
+	return p.Up(context.Background())
 }
 
 func ConvertAndMigrate(cfg *Config) error {

@@ -85,10 +85,10 @@ func ConvertFlywayToGoose(in io.Reader) (string, error) {
 			result.WriteString("\n-- +goose StatementEnd")
 		}
 
-		// 为最后一条语句添加分号（在同一行）
+		// 为最后一条语句添加分号（在新行）
 		if i == len(statements)-1 && len(statements) > 0 {
 			if !hasSemicolonAtEnt(statements[i]) {
-				result.WriteString(";\n")
+				result.WriteString("\n;\n")
 			} else {
 				result.WriteString("\n")
 			}
