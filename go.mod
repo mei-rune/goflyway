@@ -10,7 +10,7 @@ require (
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/go-sql-driver/mysql v1.9.2
 	github.com/lib/pq v1.10.9
-	github.com/mei-rune/gooselite v0.0.0-20260728065629-98b992715173
+	github.com/mei-rune/gooselite v0.0.0-20260728124343-1d43d0ca9612
 	github.com/microsoft/go-mssqldb v1.8.2
 	github.com/sijms/go-ora/v2 v2.8.24
 	github.com/ziutek/mymysql v1.5.4

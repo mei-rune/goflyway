@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/dimchansky/utfbom"
-	"github.com/mei-rune/goose"
+	"github.com/mei-rune/gooselite"
 )
 
 type Config struct {
@@ -42,7 +42,7 @@ func Convert(inputPath, outputDir, baseYear string) (string, error) {
 }
 
 func migrateWithGoose(migrationsDir, driver, connString string) error {
-	p, err := goose.NewProvider(&goose.DBConfig{
+	p, err := gooselite.NewProvider(&gooselite.DBConfig{
 		MigrationsDir: migrationsDir,
 		DriverName:    driver,
 		ConnStr:       connString,
@@ -61,7 +61,7 @@ func ConvertAndMigrate(cfg *Config) error {
 	useTempDir := false
 	if cfg.OutputDir == "" {
 		// 创建临时目录
-		cfg.OutputDir, err = os.MkdirTemp("", "flyway2goose_")
+		cfg.OutputDir, err = os.MkdirTemp("", "flyway2gooselite_")
 		if err != nil {
 			return fmt.Errorf("failed to create temp dir: %w", err)
 		}
@@ -264,17 +264,17 @@ func processFS(fsys fs.FS, outputDir string, baseYear string) error {
 			return fmt.Errorf("failed to read %s: %w", path, err)
 		}
 
-		gooseName, err := convertToGooseFilename(path, baseYear)
+		gooseliteName, err := convertToGooseFilename(path, baseYear)
 		if err != nil {
 			return fmt.Errorf("failed to convert filename %s: %w", path, err)
 		}
 
-		outputPath := filepath.Join(outputDir, gooseName)
+		outputPath := filepath.Join(outputDir, gooseliteName)
 		if err := os.WriteFile(outputPath, []byte(content), 0644); err != nil {
 			return fmt.Errorf("failed to write %s: %w", outputPath, err)
 		}
 
-		fmt.Printf("Converted: %s -> %s\n", path, gooseName)
+		fmt.Printf("Converted: %s -> %s\n", path, gooseliteName)
 		return nil
 	})
 }

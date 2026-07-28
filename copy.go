@@ -8,34 +8,39 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/mei-rune/goose"
+	"github.com/mei-rune/gooselite"
 )
 
-// CopyMigrateTable copies Flyway migration records into goose's version table.
+// CopyMigrateTable copies Flyway migration records into gooselite's version table.
 func CopyMigrateTable(
 	driver string,
 	db *sql.DB,
 	flywayTable string, // Flyway表名
-	gooseTable string, // Goose表名
+	gooseliteTable string, // Goose表名
 	baseYear string, // 年份
 ) error {
+	if db == nil {
+		return errors.New("db is missing")
+	}
 	// 1. 表名校验（防SQL注入）
-	if err := goose.ValidateTableNames(flywayTable, gooseTable); err != nil {
+	if err := gooselite.ValidateTableNames(flywayTable, gooseliteTable); err != nil {
 		return fmt.Errorf("表名非法: %s", err)
 	}
 
-	// 2. 创建 goose Provider
-	p, err := goose.NewProvider(&goose.DBConfig{
+	// 2. 创建 gooselite Provider
+	p, err := gooselite.NewProvider(&gooselite.DBConfig{
 		DriverName: driver,
-		TableName:  gooseTable,
-	}, goose.WithConn(db))
+		TableName:  gooseliteTable,
+		MigrationsDir: ".",
+	},
+	gooselite.WithConn(db))
 	if err != nil {
-		return fmt.Errorf("创建 goose provider 失败: %w", err)
+		return fmt.Errorf("创建 gooselite provider 失败: %w", err)
 	}
 
-	// 3. 确保 goose 版本表存在
+	// 3. 确保 gooselite 版本表存在
 	if _, err := p.EnsureDBVersion(context.Background()); err != nil {
-		return fmt.Errorf("ensure goose version table: %w", err)
+		return fmt.Errorf("ensure gooselite version table: %w", err)
 	}
 
 	// 4. 获取最新Flyway版本记录
@@ -51,7 +56,7 @@ func CopyMigrateTable(
 		return fmt.Errorf("Flyway表 %s 无版本记录", flywayTable)
 	}
 
-	// 5. 逐条插入 goose 版本表
+	// 5. 逐条插入 gooselite 版本表
 	for _, migration := range migrations {
 		if migration.version == "" {
 			return fmt.Errorf("Flyway表 %s 无版本记录", flywayTable)
@@ -66,7 +71,7 @@ func CopyMigrateTable(
 			return fmt.Errorf("版本转换失败: %s", err)
 		}
 
-		if err := p.Dialect().InsertVersionSql(context.Background(), db, gooseTable, versionID, true, migration.desc); err != nil {
+		if err := p.Dialect().InsertVersionSql(context.Background(), db, gooseliteTable, versionID, true, migration.desc); err != nil {
 			return fmt.Errorf("插入版本 %d 失败: %w", versionID, err)
 		}
 	}
@@ -91,7 +96,7 @@ func getAllFlywayVersions(
 
 	rows, err := db.Query(query)
 	if err != nil {
-		if goose.IsTableNotExists(err) {
+		if gooselite.IsTableNotExists(err) {
 			return nil, sql.ErrNoRows
 		}
 		return nil, err
@@ -117,5 +122,5 @@ func getAllFlywayVersions(
 // IsTableAlreadyExists reports whether the given error indicates that
 // a table already exists.
 func IsTableAlreadyExists(err error) bool {
-	return goose.IsTableAlreadyExists(err)
+	return gooselite.IsTableAlreadyExists(err)
 }

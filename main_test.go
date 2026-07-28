@@ -8,9 +8,33 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"sync"
 
 	_ "modernc.org/sqlite"
+	"github.com/mei-rune/gooselite"
 )
+
+var dialectOnce sync.Once
+
+func registerSqlDialects() {
+	// gooselite.SqlDialects["dm"] = func() gooselite.SqlDialect { return dm.NewDialect() }
+	// gooselite.SqlDialects["oracle"] = func() gooselite.SqlDialect { return oracle.NewDialect() }
+	gooselite.SqlDialects["aci"] = gooselite.SqlDialects["oracle"]
+	gooselite.SqlDialects["shengtong_oscar"] = gooselite.SqlDialects["oracle"]
+	gooselite.SqlDialects["oceanbase_oracle"] = gooselite.SqlDialects["oracle"]
+
+	// mariadb/oceanbase_mysql → 复用 mysql 方言
+	gooselite.SqlDialects["mariadb"] = gooselite.SqlDialects["mysql"]
+	gooselite.SqlDialects["oceanbase_mysql"] = gooselite.SqlDialects["mysql"]
+	// pgx/pgx/v5/opengauss/gaussdb/kingbase/kingbase8 → 复用 postgres 方言
+	gooselite.SqlDialects["pgx"] = gooselite.SqlDialects["postgres"]
+	gooselite.SqlDialects["pgx/v5"] = gooselite.SqlDialects["postgres"]
+	gooselite.SqlDialects["opengauss"] = gooselite.SqlDialects["postgres"]
+	gooselite.SqlDialects["gaussdb"] = gooselite.SqlDialects["postgres"]
+	gooselite.SqlDialects["kingbase"] = gooselite.SqlDialects["postgres"]
+	gooselite.SqlDialects["kingbase8"] = gooselite.SqlDialects["postgres"]
+	gooselite.SqlDialects["sqlite3"] = gooselite.SqlDialects["sqlite"]
+}
 
 // TestIsFlywayFilename 测试文件名识别
 func TestIsFlywayFilename(t *testing.T) {
@@ -264,13 +288,15 @@ func TestConvertFile(t *testing.T) {
 
 // TestConvertAndMigrate 测试转换并迁移(模拟)
 func TestConvertAndMigrate(t *testing.T) {
+	dialectOnce.Do(registerSqlDialects)
+
 	// 使用模拟数据库连接
 	cfg := &Config{
 		InputPath:    "testdata",
 		OutputDir:    t.TempDir(),
 		BaseYear:     "2000",
 		DBConnString: "file:test.db?mode=memory&cache=shared",
-		DBDriver:     "sqlite3",
+		DBDriver:     "sqlite",
 	}
 
 	err := ConvertAndMigrate(cfg)
